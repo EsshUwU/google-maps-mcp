@@ -6,6 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { ChatState, marked, Playground } from './playground';
+import { applyStoredTheme } from './lib/theme'; // Import the theme utility
 
 import { startMcpGoogleMapServer, MapParams } from './mcp_maps_server';
 
@@ -163,6 +164,8 @@ function mcpToOpenRouterTool(mcpClient?: Client): any[] {
 }
 
 document.addEventListener('DOMContentLoaded', async (event) => {
+    applyStoredTheme(); // Apply theme as soon as DOM is loaded
+
     const rootElement = document.querySelector('#root')! as HTMLElement;
     const playground = new Playground();
     rootElement.appendChild(playground as unknown as HTMLElement);

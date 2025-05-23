@@ -125,7 +125,6 @@ export class Playground extends LitElement {
       this.mapDisplayParams = {
         queryType: 'place',
         queryValue: newParams.location,
-        // Default to zoom 5 for broad place queries (like countries/cities) if not adjusting zoom simultaneously
         zoom: newParams.zoom_adjust === undefined ? 5 : targetZoom,
         origin: undefined,
         destination: undefined,
@@ -134,7 +133,6 @@ export class Playground extends LitElement {
       this.mapDisplayParams = {
         queryType: 'search',
         queryValue: newParams.search,
-        // Default to zoom 14 for local search queries if not adjusting zoom simultaneously
         zoom: newParams.zoom_adjust === undefined ? 14 : targetZoom,
         origin: undefined,
         destination: undefined,
@@ -144,23 +142,17 @@ export class Playground extends LitElement {
         queryType: 'directions',
         origin: newParams.origin,
         destination: newParams.destination,
-        // Default to zoom 8 for directions if not adjusting zoom simultaneously
         zoom: newParams.zoom_adjust === undefined ? 8 : targetZoom,
         queryValue: undefined,
       };
     } else if (newParams.zoom_adjust !== undefined) {
-      // If only zoom_adjust was provided, mapDisplayParams.zoom is already updated.
-      // No change to queryType or queryValue/origin/destination needed.
-      // If there was no prior context for zoom, it will apply to the 'World' view.
       if (this.mapDisplayParams.queryType === 'none') {
         this.mapDisplayParams.queryType = 'place';
         this.mapDisplayParams.queryValue = 'World'; 
       }
     } else if (Object.keys(newParams).length === 0 && this.mapDisplayParams.queryType === 'none') {
-        // Handles initial load if mapDisplayParams was 'none' and empty params passed.
         this.mapDisplayParams = { queryType: 'place', queryValue: 'World', zoom: 3, origin: undefined, destination: undefined};
     }
-
 
     let src = '';
     const currentContext = this.mapDisplayParams;
@@ -181,8 +173,7 @@ export class Playground extends LitElement {
           src = `https://www.google.com/maps/embed/v1/directions?key=${this.MAPS_API_KEY}&origin=${encodeURIComponent(currentContext.origin)}&destination=${encodeURIComponent(currentContext.destination)}&zoom=${currentContext.zoom}`;
         }
         break;
-      default: // Includes 'none' or if context is somehow invalid
-         // Fallback to a general world view if no specific query is active
+      default: 
         if (!this.previewFrame.src || (currentContext.queryType === 'none' && !currentContext.queryValue)) { 
              src = `https://www.google.com/maps/embed/v1/place?key=${this.MAPS_API_KEY}&q=${encodeURIComponent(currentContext.queryValue || 'World')}&zoom=${currentContext.zoom}`;
         }
@@ -192,10 +183,8 @@ export class Playground extends LitElement {
     if (src) {
       this.previewFrame.src = src;
     }
-     // Request update for LitElement to re-render based on @state changes
     (this as LitElement).requestUpdate();
   }
-
 
   setInputField(message: string) {
     this.inputMessage = message.trim();
@@ -203,45 +192,65 @@ export class Playground extends LitElement {
 
   addMessage(role: string, message: string) {
     const div = document.createElement('div');
-    div.classList.add('turn');
-    div.classList.add(`role-${role.trim()}`);
+    // Base card classes + flex for layout + max-width & break-words from old .turn
+    div.className = "turn p-3 rounded-lg shadow-sm mb-2 flex flex-col max-w-[85%] break-words"; 
+
+    const roleNormalized = role.trim().toLowerCase();
+    // Not adding .role-${roleNormalized} class anymore, specific styles are applied directly.
+
+    // Apply role-specific background, text colors, and alignment
+    switch (roleNormalized) {
+      case 'user':
+        div.classList.add('bg-primary', 'text-primary-foreground', 'self-end', 'rounded-bl-none');
+        break;
+      case 'assistant': 
+        div.classList.add('bg-muted', 'text-muted-foreground', 'self-start', 'rounded-br-none');
+        break;
+      case 'error':
+        div.classList.add('bg-destructive', 'text-destructive-foreground', 'self-start', 'rounded-br-none');
+        break;
+      case 'system-ask': 
+        div.classList.add('bg-secondary', 'text-secondary-foreground', 'self-center', 'text-center', 'rounded-md'); 
+        break;
+      default: // Fallback for any other roles
+        div.classList.add('bg-card', 'text-card-foreground', 'self-start', 'rounded-br-none');
+        break;
+    }
 
     const thinkingDetails = document.createElement('details');
-    thinkingDetails.classList.add('hidden');
+    // Styling for thinking details using Tailwind classes
+    thinkingDetails.className = "thinking hidden text-sm text-muted-foreground p-2 mt-2 bg-card rounded"; 
+    thinkingDetails.setAttribute('open', 'true'); 
     const summary = document.createElement('summary');
-    summary.textContent = 'Thinking...';
-    thinkingDetails.classList.add('thinking');
-    thinkingDetails.setAttribute('open', 'true');
-    const thinking = document.createElement('div');
-    thinkingDetails.append(thinking);
+    summary.textContent = 'Thinking...'; 
+    const thinkingContent = document.createElement('div'); 
+    thinkingDetails.append(summary); 
+    thinkingDetails.append(thinkingContent);
     div.append(thinkingDetails);
+
     const text = document.createElement('div');
-    text.className = 'text';
-    text.textContent = message; // Text content will be replaced by parsed markdown if needed
+    text.className = 'text'; 
+    text.textContent = message; 
     div.append(text);
 
     this.messages = [...this.messages, div];
     (this as LitElement).requestUpdate();
 
-
     this.scrollToTheEnd();
-
-    return {thinking, text};
+    return {thinking: thinkingContent, text};
   }
 
   scrollToTheEnd() {
     if (!this.anchor) return;
     this.anchor.scrollIntoView({
-      behavior: 'auto', // Changed to auto for potentially faster scroll on rapid updates
+      behavior: 'auto', 
       block: 'end',
     });
   }
 
   async sendMessageAction(message?: string, role?: string) {
     if (this.chatState !== ChatState.IDLE) return;
-
     this.chatState = ChatState.GENERATING;
-
     let msg = '';
     if (message) {
       msg = message.trim();
@@ -249,23 +258,17 @@ export class Playground extends LitElement {
       msg = this.inputMessage.trim();
       this.inputMessage = '';
     }
-
     if (msg.length === 0) {
       this.chatState = ChatState.IDLE;
       return;
     }
-
     const msgRole = role ? role.toLowerCase() : 'user';
-
     if (msgRole === 'user' && msg) {
       this.addMessage(msgRole, msg);
     }
-
     if (this.sendMessageHandler) {
       await this.sendMessageHandler(msg, msgRole);
     }
-
-    // No longer setting to IDLE here, it's handled in processMessagesWithOpenRouter completion/error
   }
 
   private async inputKeyDownAction(e: KeyboardEvent) {
@@ -277,14 +280,21 @@ export class Playground extends LitElement {
   }
 
   render() {
+    // Classes for shadcn-like Tabs styling
+    const tabsListClasses = "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground";
+    const tabsTriggerClasses = "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+    const activeTriggerClasses = "bg-background text-foreground shadow-sm";
+    const inactiveTriggerClasses = ""; 
+
+    const tabsContentClasses = "mt-2 ring-offset-background";
+
     return html`<div class="playground">
       <div class="sidebar">
-        <div class="selector">
+        <div class="selector ${tabsListClasses}">
           <button
             id="geminiTab"
-            class=${classMap({
-              'selected-tab': this.selectedChatTab === ChatTab.GEMINI,
-            })}
+            class="${tabsTriggerClasses} ${this.selectedChatTab === ChatTab.GEMINI ? activeTriggerClasses : inactiveTriggerClasses}"
+            data-state=${this.selectedChatTab === ChatTab.GEMINI ? "active" : "inactive"}
             @click=${() => {
               this.selectedChatTab = ChatTab.GEMINI;
             }}>
@@ -293,10 +303,9 @@ export class Playground extends LitElement {
         </div>
         <div
           id="chat"
-          class=${classMap({
-            'tabcontent': true,
+          class="tabcontent ${tabsContentClasses} ${classMap({
             'showtab': this.selectedChatTab === ChatTab.GEMINI,
-          })}>
+          })}">
           <div class="chat-messages">
             ${this.messages}
             <div id="anchor"></div>
@@ -328,20 +337,21 @@ export class Playground extends LitElement {
                   this.inputKeyDownAction(e);
                 }}
                 placeholder="Type your message..."
-                autocomplete="off" />
+                autocomplete="off"
+                class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                 /> {/* Applied shadcn Input classes */}
               <button
                 id="sendButton"
-                class=${classMap({
-                  'disabled': this.chatState !== ChatState.IDLE,
-                })}
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 size-9 rounded-full"
+                ?disabled=${this.chatState !== ChatState.IDLE}
                 @click=${() => {
                   this.sendMessageAction();
-                }}>
+                }}> {/* Applied shadcn default variant, icon size, and rounded-full. Ensured disabled state is bound correctly for Lit. */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  height="30px"
+                  height="24px"
                   viewBox="0 -960 960 960"
-                  width="30px"
+                  width="24px"
                   fill="currentColor">
                   <path d="M120-160v-240l320-80-320-80v-240l760 320-760 320Z" />
                 </svg>
