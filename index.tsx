@@ -186,13 +186,16 @@ document.addEventListener('DOMContentLoaded', async (event) => {
     playground.sendMessageHandler = async (input: string, role: string) => {
         if (role === 'user') {
             apiMessages.push({ role: 'user', content: input });
+            // Display user's own message temporarily
+            playground.displayTemporaryChatMessage(await marked.parse(`<strong>You:</strong> ${input}`), 3000);
+            playground.clearActiveStreamingMessageImmediately(); // Clear any ongoing stream
         }
 
         playground.setChatState(ChatState.GENERATING);
-        const { text: thinkingTextElement, text: assistantMessageTextElement } = playground.addMessage(
-            'assistant',
-            '...'
-        ); // Placeholder for assistant message
+        // const { text: thinkingTextElement, text: assistantMessageTextElement } = playground.addMessage(
+        //     'assistant',
+        //     '...'
+        // ); // Placeholder for assistant message
 
         let currentToolCalls: Array<{
             index: number;
@@ -203,6 +206,9 @@ document.addEventListener('DOMContentLoaded', async (event) => {
         let accumulatedTextResponse = '';
 
         try {
+            // Display initial "Thinking..." or similar message in the chat bar
+            // playground.displayTemporaryChatMessage('Thinking...', 60000); // Keep it visible until response or error
+            playground.showStreamingMessage(await marked.parse('Thinking...'), 60000); // Use streaming for thinking
             await processMessagesWithOpenRouter();
         } catch (e: any) {
             console.error('OpenRouter API Error:', e);
@@ -218,9 +224,15 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             }
             const { text: errorTextElement } = playground.addMessage('error', '');
             errorTextElement.innerHTML = message;
-        } finally {
             playground.setChatState(ChatState.IDLE);
-            playground.scrollToTheEnd();
+            // Clear any persistent "Thinking..." message on error
+            // if (playground.chatBarMessage && playground.chatBarMessage.innerHTML.includes('Thinking')) {
+            //     playground.displayTemporaryChatMessage(await marked.parse(message), 5000); // Show error
+            // } else {
+            //      playground.displayTemporaryChatMessage(await marked.parse(message), 5000); // Show error if not already showing thinking
+            // }
+            playground.finalizeStreamingMessage(await marked.parse(`Error: ${message}`), 5000);
+            // playground.scrollToTheEnd(); // No longer needed
         }
 
         async function processMessagesWithOpenRouter() {
@@ -257,7 +269,7 @@ document.addEventListener('DOMContentLoaded', async (event) => {
             currentToolCalls = []; // Reset for this stream
             accumulatedTextResponse = ''; // Reset for this stream
 
-            assistantMessageTextElement.innerHTML = '...'; // Reset UI for new response
+            // assistantMessageTextElement.innerHTML = '...'; // Reset UI for new response
 
             // eslint-disable-next-line no-constant-condition
             while (true) {
@@ -283,14 +295,30 @@ document.addEventListener('DOMContentLoaded', async (event) => {
 
                                 if (delta.content) {
                                     accumulatedTextResponse += delta.content;
-                                    assistantMessageTextElement.innerHTML = await marked.parse(
-                                        accumulatedTextResponse + '...'
-                                    );
-                                    playground.scrollToTheEnd();
+                                    // Update the thinking message with accumulating content
+                                    const thinkingMessage = accumulatedTextResponse
+                                        ? accumulatedTextResponse + '...'
+                                        : 'Processing...';
+                                    playground.showStreamingMessage(await marked.parse(thinkingMessage), 60000); // Keep updating the streaming message
+                                    // assistantMessageTextElement.innerHTML = await marked.parse(
+                                    //     accumulatedTextResponse + '...'
+                                    // );
+                                    // playground.scrollToTheEnd(); // No longer needed
                                 }
 
                                 if (delta.tool_calls) {
                                     playground.setChatState(ChatState.EXECUTING);
+                                    // Display tool call initiation in the chat bar
+                                    // playground.displayTemporaryChatMessage('Initiating tool calls...', 5000);
+                                    playground.finalizeStreamingMessage(
+                                        await marked.parse(
+                                            accumulatedTextResponse.trim() || 'Initiating tool calls...'
+                                        ),
+                                        1000
+                                    ); // Finalize previous stream
+                                    accumulatedTextResponse = ''; // Reset for next potential text parts
+                                    currentToolCalls = []; // Ensure it is reset before new tool calls are processed
+
                                     for (const toolCallChunk of delta.tool_calls) {
                                         let existingCall = currentToolCalls.find(
                                             (tc) => tc.index === toolCallChunk.index
@@ -319,11 +347,18 @@ document.addEventListener('DOMContentLoaded', async (event) => {
                             }
                             if (chunk.choices && chunk.choices[0] && chunk.choices[0].finish_reason === 'tool_calls') {
                                 if (accumulatedTextResponse.trim()) {
-                                    apiMessages.push({ role: 'assistant', content: accumulatedTextResponse.trim() });
-                                    assistantMessageTextElement.innerHTML = await marked.parse(
-                                        accumulatedTextResponse.trim()
+                                    // Final assistant text response displayed temporarily
+                                    playground.finalizeStreamingMessage(
+                                        await marked.parse(accumulatedTextResponse),
+                                        5000
                                     );
+                                    apiMessages.push({ role: 'assistant', content: accumulatedTextResponse.trim() });
+                                } else if (currentToolCalls.length === 0 && !accumulatedTextResponse.trim()) {
+                                    // If no text and no tools, show a generic done message
+                                    // playground.displayTemporaryChatMessage(await marked.parse('Done.'), 3000);
+                                    playground.finalizeStreamingMessage(await marked.parse('Done.'), 3000); // Finalize any thinking message
                                 }
+                                playground.setChatState(ChatState.IDLE);
                                 apiMessages.push({
                                     role: 'assistant',
                                     tool_calls: currentToolCalls.map((tc) => ({
@@ -343,10 +378,13 @@ document.addEventListener('DOMContentLoaded', async (event) => {
                 }
             }
             if (accumulatedTextResponse.trim()) {
-                assistantMessageTextElement.innerHTML = await marked.parse(accumulatedTextResponse);
+                // Final assistant text response displayed temporarily
+                playground.finalizeStreamingMessage(await marked.parse(accumulatedTextResponse), 5000);
                 apiMessages.push({ role: 'assistant', content: accumulatedTextResponse.trim() });
             } else if (currentToolCalls.length === 0 && !accumulatedTextResponse.trim()) {
-                assistantMessageTextElement.innerHTML = await marked.parse('Done.');
+                // If no text and no tools, show a generic done message
+                // playground.displayTemporaryChatMessage(await marked.parse('Done.'), 3000);
+                playground.finalizeStreamingMessage(await marked.parse('Done.'), 3000); // Finalize any thinking message
             }
             playground.setChatState(ChatState.IDLE);
         }
@@ -386,10 +424,12 @@ document.addEventListener('DOMContentLoaded', async (event) => {
                         functionArgs,
                         null,
                         2
-                    )}\n\`\`\``;
-                    const { text: toolCallTextElement } = playground.addMessage('assistant', '');
-                    toolCallTextElement.innerHTML = await marked.parse(explanation);
-                    playground.scrollToTheEnd();
+                    )}\n\n\`\`\``;
+                    // const { text: toolCallTextElement } = playground.addMessage('assistant', '');
+                    // toolCallTextElement.innerHTML = await marked.parse(explanation);
+                    // Display tool call explanation in the chat bar as a separate temporary message
+                    playground.displayTemporaryChatMessage(await marked.parse(explanation), 4000);
+                    // playground.scrollToTheEnd(); // No longer needed
 
                     const toolCallRawResponse = await mcpClient.callTool({
                         name: functionName,
@@ -420,6 +460,8 @@ document.addEventListener('DOMContentLoaded', async (event) => {
                         name: functionName,
                         content: toolResultText
                     });
+                    // Display tool result in the chat bar as a separate temporary message
+                    playground.displayTemporaryChatMessage(`Tool ${functionName} result: ${toolResultText}`, 4000);
                 } catch (e: any) {
                     console.error(`Error executing tool ${functionName} via MCP:`, e);
                     apiMessages.push({
@@ -428,8 +470,13 @@ document.addEventListener('DOMContentLoaded', async (event) => {
                         name: functionName,
                         content: `Error: ${e.message}`
                     });
+                    // Display tool error in the chat bar as a separate temporary message
+                    playground.displayTemporaryChatMessage(`Error in ${functionName}: ${e.message}`, 5000);
                 }
             }
+            // Clear the thinking/processing message before starting next OpenRouter call
+            // if (playground.chatBarMessage) playground.chatBarMessage.innerHTML = '';
+            playground.clearActiveStreamingMessageImmediately(); // Clear stream before potentially starting a new one
             await processMessagesWithOpenRouter();
         }
     };
