@@ -28,7 +28,9 @@ The available tools are:
 - search_google_maps: Search for places near a location.
 - directions_on_google_maps: Get directions from an origin to a destination.
 - zoom_in_google_maps: Zooms in on the current map view. If the user does not specify by how much, assume a zoom in of 5 levels. Otherwise, use the level specified by the user (e.g., a level of 2 means zoom in by 2 steps).
-- zoom_out_google_maps: Zooms out of the current map view. If the user does not specify by how much, assume a zoom out of 5 levels. Otherwise, use the level specified by the user (e.g., a level of 2 means zoom out by 2 steps).`;
+- zoom_out_google_maps: Zooms out of the current map view. If the user does not specify by how much, assume a zoom out of 5 levels. Otherwise, use the level specified by the user (e.g., a level of 2 means zoom out by 2 steps).
+ If the user location is country, you don't need to zoom in. if it's city, you can zoom in 3x., or if it's a specific location, you can zoom in even more like 4x`;
+
 
 const EXAMPLE_PROMPTS = [
     'Where is something cool to see',

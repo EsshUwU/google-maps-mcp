@@ -58,7 +58,7 @@ enum ChatTab {
 
 // Internal state for current map display parameters
 interface MapDisplayState {
-    queryType: 'place' | 'search' | 'directions' | 'none';
+    queryType: 'place' | 'search' | 'directions' | 'none' | 'view';
     queryValue?: string; // For place & search
     origin?: string; // For directions
     destination?: string; // For directions
@@ -105,6 +105,10 @@ export class Playground extends LitElement {
         this.previewFrame.setAttribute('allowfullscreen', 'true');
         this.previewFrame.setAttribute('loading', 'lazy');
         this.previewFrame.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+        this.previewFrame.setAttribute(
+            'sandbox',
+            'allow-scripts allow-same-origin allow-forms allow-popups allow-presentation'
+        );
     }
 
     /** Disable shadow DOM */
@@ -253,14 +257,15 @@ export class Playground extends LitElement {
             // No change to queryType or queryValue/origin/destination needed.
             // If there was no prior context for zoom, it will apply to the 'World' view.
             if (this.mapDisplayParams.queryType === 'none') {
-                this.mapDisplayParams.queryType = 'place';
-                this.mapDisplayParams.queryValue = 'World';
+                this.mapDisplayParams.queryType = 'view';
+                this.mapDisplayParams.queryValue = undefined;
             }
         } else if (Object.keys(newParams).length === 0 && this.mapDisplayParams.queryType === 'none') {
             // Handles initial load if mapDisplayParams was 'none' and empty params passed.
+            // Use view mode with explicit coordinates to prevent location detection
             this.mapDisplayParams = {
-                queryType: 'place',
-                queryValue: 'World',
+                queryType: 'view',
+                queryValue: undefined,
                 zoom: 3,
                 origin: undefined,
                 destination: undefined
@@ -275,14 +280,18 @@ export class Playground extends LitElement {
                 if (currentContext.queryValue) {
                     src = `https://www.google.com/maps/embed/v1/place?key=${this.MAPS_API_KEY}&q=${encodeURIComponent(
                         currentContext.queryValue
-                    )}&zoom=${currentContext.zoom}`;
+                    )}&zoom=${currentContext.zoom}&region=US&language=en`;
                 }
+                break;
+            case 'view':
+                // Use explicit center coordinates for world view to prevent location detection
+                src = `https://www.google.com/maps/embed/v1/view?key=${this.MAPS_API_KEY}&center=20,0&zoom=${currentContext.zoom}&region=US&language=en`;
                 break;
             case 'search':
                 if (currentContext.queryValue) {
                     src = `https://www.google.com/maps/embed/v1/search?key=${this.MAPS_API_KEY}&q=${encodeURIComponent(
                         currentContext.queryValue
-                    )}&zoom=${currentContext.zoom}`;
+                    )}&zoom=${currentContext.zoom}&region=US&language=en`;
                 }
                 break;
             case 'directions':
@@ -291,15 +300,13 @@ export class Playground extends LitElement {
                         this.MAPS_API_KEY
                     }&origin=${encodeURIComponent(currentContext.origin)}&destination=${encodeURIComponent(
                         currentContext.destination
-                    )}&zoom=${currentContext.zoom}`;
+                    )}&zoom=${currentContext.zoom}&region=US&language=en`;
                 }
                 break;
             default: // Includes 'none' or if context is somehow invalid
                 // Fallback to a general world view if no specific query is active
                 if (!this.previewFrame.src || (currentContext.queryType === 'none' && !currentContext.queryValue)) {
-                    src = `https://www.google.com/maps/embed/v1/place?key=${this.MAPS_API_KEY}&q=${encodeURIComponent(
-                        currentContext.queryValue || 'World'
-                    )}&zoom=${currentContext.zoom}`;
+                    src = `https://www.google.com/maps/embed/v1/view?key=${this.MAPS_API_KEY}&center=20,0&zoom=3&region=US&language=en`;
                 }
                 break;
         }

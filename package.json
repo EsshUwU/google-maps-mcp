@@ -25,6 +25,7 @@
         "zod": "^3.25.7"
     },
     "devDependencies": {
+        "@types/google.maps": "^3.58.1",
         "@types/node": "^22.14.0",
         "nodemon": "^3.0.2",
         "typescript": "~5.7.2",
