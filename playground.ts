@@ -89,7 +89,7 @@ export class Playground extends LitElement {
 
     private readonly previewFrame: HTMLIFrameElement = document.createElement('iframe');
 
-    private readonly MAPS_API_KEY = 'AIzaSyC7c1m_Jyz3uw6lbIQUNuH3e6o0NKc_8hk'; // Keep your API key secure
+    private readonly MAPS_API_KEY = ''; // Keep your API key secure
 
     // For the dedicated streaming message
     private streamingMessageElement: HTMLElement | null = null;
