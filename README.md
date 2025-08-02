@@ -60,4 +60,4 @@ Then open your browser to http://localhost:5173 (frontend dev server)
 -   Tool-based interactions with map functionality
 
 
-Archived/Old
+Archived
