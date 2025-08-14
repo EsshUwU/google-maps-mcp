@@ -59,5 +59,8 @@ Then open your browser to http://localhost:5173 (frontend dev server)
 -   Real-time map manipulation (zoom, search, directions)
 -   Tool-based interactions with map functionality
 
+Future works
+
+use open source version of Google maps
 
 Archived
