@@ -58,7 +58,7 @@ Then open your browser to http://localhost:5173 (frontend dev server)
 -   AI-powered location search and directions
 -   Real-time map manipulation (zoom, search, directions)
 -   Tool-based interactions with map functionality
-
+-   Other API Provider support 
 Future works
 
 use open source version of Google maps
